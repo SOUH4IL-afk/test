@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz — النسخة الكاملة (مع تسجيل وLeaderboard)</title>
+  <style>
+    :root{--bg:#f5f6fa;--card:#fff;--accent:#44bd32;--danger:#e84118;--muted:#7f8c8d;--gold:#f39c12}
+    body{margin:0;font-family:Inter, Arial, sans-serif;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;color:#111}
+    .wrap{width:100%;max-width:1100px}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 12px 36px rgba(2,6,23,0.08);overflow:hidden;display:grid;grid-template-columns:1fr 360px;min-height:680px}
+    header{padding:18px;display:flex;justify-content:space-between;align-items:center}
+    .brand{font-weight:800;font-size:20px}
+    .controls{display:flex;gap:8px;align-items:center}
+    select,input[type=file]{padding:8px;border-radius:8px;border:1px solid #e6eef3;background:#fff}
+    button{padding:8px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer}
+    .main{padding:22px}
+    .sidebar{padding:22px;border-left:1px solid rgba(0,0,0,0.04)}
+    .stat{display:flex;justify-content:space-between;padding:10px;border-radius:10px;background:linear-gradient(180deg,#fff,#fbfdff);margin-bottom:10px}
+    .question-area{background:linear-gradient(180deg,#ffffff,#fbfdff);padding:18px;border-radius:12px;border:1px solid #eef3f7}
+    .question-text{font-size:20px;margin-bottom:12px}
+    .answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .answer{padding:12px;border-radius:10px;border:1px solid #e9eef3;background:#fff;cursor:pointer}
+    .answer.correct{background:linear-gradient(90deg,#e6fff0,#e9fff6);border-color:#c9f7d9}
+    .answer.wrong{background:linear-gradient(90deg,#fff0f0,#fff6f6);border-color:#ffd6d6}
+    .small{font-size:13px;color:var(--muted)}
+    .panel{background:linear-gradient(180deg,#fbfbff,#fff);padding:12px;border-radius:10px;margin-bottom:12px}
+    .lb-list{max-height:240px;overflow:auto}
+    @media (max-width:980px){.card{grid-template-columns:1fr}.sidebar{order:2}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="main">
+        <header>
+          <div class="brand">Quiz — النسخة الكاملة</div>
+          <div class="controls">
+            <select id="categorySel"><option value="all">كل التصنيفات</option><option value="math">رياضيات</option><option value="science">علوم</option><option value="history">تاريخ</option><option value="geo">جغرافيا</option></select>
+            <select id="difficultySel"><option value="all">كافة الدرجات</option><option value="easy">سهل</option><option value="medium">متوسط</option><option value="hard">صعب</option></select>
+            <input id="sheetUrl" placeholder="رابط Google Sheet (publish csv) أو URL JSON" style="padding:8px;border-radius:8px;border:1px solid #e6eef3;width:360px" />
+            <button id="loadQuestionsBtn">تحميل الأسئلة</button>
+            <button id="startBtn">ابدأ</button>
+          </div>
+        </header>
+
+        <div class="stat"><div class="small">الوضع</div><div id="status">جاهز</div></div>
+
+        <div class="question-area">
+          <div class="question-text" id="questionText">اضغط ابدأ لتحميل جولة</div>
+          <div class="answers" id="answers"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+            <div class="small">الوقت المتبقي: <span id="timeLeft">0</span>s</div>
+            <div>
+              <button id="hintBtn">تلميح (1 🪙)</button>
+              <button id="skipBtn">تخطي (2 🪙)</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;display:flex;justify-content:space-between;gap:10px">
+          <div class="small">مشاركة الجولة: <button id="shareBtn">مشاركة</button></div>
+          <div><button id="reviewBtn">عرض المراجعة</button></div>
+        </div>
+
+        <div id="reviewArea" style="display:none;margin-top:12px"></div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="panel">
+          <div style="display:flex;gap:8px;align-items:center">
+            <img id="userPic" src="" alt="" style="width:40px;height:40px;border-radius:50%;display:none" />
+            <div>
+              <div id="userName">زائر</div>
+              <div class="small" id="authBtns"><button id="signInBtn">تسجيل دخول</button><button id="signOutBtn" style="display:none">خروج</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="small">الإحصاءات</div>
+          <div class="stat"><div class="small">النقاط</div><div id="score">0</div></div>
+          <div class="stat"><div class="small">Coins</div><div id="coins">0</div></div>
+          <div class="stat"><div class="small">Lives</div><div id="lives">3</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="small">لوحة الشرف (عالمية)</div>
+          <div class="lb-list" id="leaderboard"></div>
+        </div>
+
+        <div class="panel">
+          <div class="small">إعدادات متقدمة</div>
+          <textarea id="firebaseConfig" placeholder='أدخل Firebase config هنا (JSON)'></textarea>
+          <div style="margin-top:8px"><button id="saveFbBtn">حفظ Firebase</button></div>
+        </div>
+
+      </aside>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs (compat for simplicity) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+  <script>
+  // ====== تعليمات سريعة ======
+  // 1) لتحميل أسئلة من Google Sheets: قم بنشر الورقة "Publish to web" واختر CSV
+  //    ثم الصق رابط التصدير هنا مثل: https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv
+  //    أو ضع رابط JSON لملف يحتوي على مصفوفة أسئلة.
+  // 2) لإستخدام Leaderboard عالمية: قم بإنشاء مشروع Firebase (Firestore) ثم انسخ config JSON في الحقل المخصص.
+  //    امنح الكتابة للقاعدة أثناء التطوير ثم اضبط قواعد الأمان لاحقًا.
+
+  // ====== متغيرات الأسئلة وحالة اللعبة ======
+  let QUESTION_BANK = [];
+  const state = {pool:[],current:0,total:0,score:0,coins:0,lives:3,timePerQ:15,timerId:null,times:[],wrongReview:[],user:null,fb:null,db:null};
+
+  // ====== عناصر DOM ======
+  const sheetUrl = document.getElementById('sheetUrl');
+  const loadQuestionsBtn = document.getElementById('loadQuestionsBtn');
+  const startBtn = document.getElementById('startBtn');
+  const questionText = document.getElementById('questionText');
+  const answersWrap = document.getElementById('answers');
+  const timeLeft = document.getElementById('timeLeft');
+  const status = document.getElementById('status');
+  const scoreEl = document.getElementById('score');
+  const coinsEl = document.getElementById('coins');
+  const livesEl = document.getElementById('lives');
+  const leaderboardEl = document.getElementById('leaderboard');
+  const reviewArea = document.getElementById('reviewArea');
+  const reviewBtn = document.getElementById('reviewBtn');
+  const signInBtn = document.getElementById('signInBtn');
+  const signOutBtn = document.getElementById('signOutBtn');
+  const userName = document.getElementById('userName');
+  const userPic = document.getElementById('userPic');
+  const firebaseConfigInput = document.getElementById('firebaseConfig');
+  const saveFbBtn = document.getElementById('saveFbBtn');
+  const loadQuestionsInput = document.getElementById('loadQuestionsBtn');
+
+  // ====== مساعدة: جلب الأسئلة من CSV أو JSON ======
+  async function fetchQuestionsFromUrl(url){
+    try{
+      const res = await fetch(url);
+      const ct = res.headers.get('content-type') || '';
+      if(ct.includes('application/json') || url.endsWith('.json')){
+        const arr = await res.json(); if(Array.isArray(arr)) return arr; throw new Error('JSON ليس مصفوفة');
+      }
+      // افتراض CSV
+      const txt = await res.text(); return csvToQuestions(txt);
+    }catch(err){ alert('فشل تحميل الأسئلة: '+err.message); throw err; }
+  }
+
+  // بسيط: تحويل CSV (رؤوس: id,category,difficulty,q_ar,choices(answer1|answer2|...),answer,explain)
+  function csvToQuestions(csv){ const lines = csv.split(/\r?\n/).filter(Boolean); const headers = lines[0].split(',').map(h=>h.trim()); const out=[]; for(let i=1;i<lines.length;i++){ const row = parseCsvLine(lines[i]); if(row.length<headers.length) continue; const obj={}; headers.forEach((h,idx)=>obj[h]=row[idx]); if(obj.choices) obj.choices = obj.choices.split('|'); if(obj.answer) obj.answer = Number(obj.answer); out.push(obj);} return out; }
+  function parseCsvLine(line){ const parts=[]; let cur=''; let inQ=false; for(let i=0;i<line.length;i++){ const ch=line[i]; if(ch==='"'){ inQ=!inQ; continue; } if(ch===',' && !inQ){ parts.push(cur); cur=''; } else cur+=ch; } parts.push(cur); return parts.map(p=>p.trim()); }
+
+  // ====== تحميل الأسئلة بعد النقر ======
+  loadQuestionsBtn.addEventListener('click', async ()=>{
+    const url = sheetUrl.value.trim(); if(!url){ alert('الصق رابط CSV/JSON هنا'); return; }
+    status.textContent = 'تحميل...';
+    try{ const arr = await fetchQuestionsFromUrl(url); QUESTION_BANK = arr; status.textContent = 'تم التحميل: '+arr.length+' سؤال'; console.log('questions',QUESTION_BANK); }
+    catch(e){ status.textContent='خطأ في التحميل'; }
+  });
+
+  // ====== إعداد الجولة وبداية اللعب ======
+  function preparePool(){ const cat=document.getElementById('categorySel').value; const diff=document.getElementById('difficultySel').value; state.pool = QUESTION_BANK.filter(q=> (cat==='all'||q.category===cat) && (diff==='all'||q.difficulty===diff)); if(state.pool.length===0) state.pool = QUESTION_BANK.slice(); shuffle(state.pool); state.total=Math.min(12,state.pool.length); state.current=0; state.wrongReview=[]; state.times=[]; }
+  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } }
+
+  startBtn.addEventListener('click', ()=>{ if(QUESTION_BANK.length===0){ alert('ليس هناك أسئلة: حمّل ملف الأسئلة أولاً'); return;} preparePool(); state.score=0; state.coins=0; state.lives=3; updateSidebar(); nextQ(); });
+
+  function nextQ(){ clearInterval(state.timerId); if(state.current>=state.total){ endGame(); return; } const q=state.pool[state.current]; renderQuestion(q); let t=state.timePerQ; timeLeft.textContent=t; state.qStart=Date.now(); state.timerId=setInterval(()=>{ t--; timeLeft.textContent=t; if(t<=3) beep(880,0.04); if(t<=0){ clearInterval(state.timerId); timeoutHandler(); } },1000); }
+
+  function renderQuestion(q){ questionText.textContent = q.q_ar || q.q || 'سؤال'; answersWrap.innerHTML=''; q.choices.forEach((c,i)=>{ const b=document.createElement('button'); b.className='answer'; b.textContent=c; b.onclick=()=>selectAnswer(i,b,q); answersWrap.appendChild(b); }); }
+
+  function selectAnswer(idx,btn,q){ clearInterval(state.timerId); Array.from(answersWrap.children).forEach(b=>b.onclick=null); const ok = idx===q.answer; const timeTaken=(Date.now()-state.qStart)/1000; state.times.push(timeTaken); if(ok){ btn.classList.add('correct'); state.score+=10; state.coins+=1; beep(660,0.08); } else { btn.classList.add('wrong'); if(answersWrap.children[q.answer]) answersWrap.children[q.answer].classList.add('correct'); state.lives--; state.wrongReview.push(q); beep(180,0.09); } state.current++; updateSidebar(); setTimeout(()=>nextQ(),800); }
+
+  function timeoutHandler(){ const q=state.pool[state.current]; if(answersWrap.children[q.answer]) answersWrap.children[q.answer].classList.add('correct'); state.wrongReview.push(q); state.current++; state.lives--; state.times.push(state.timePerQ); updateSidebar(); beep(220,0.07); setTimeout(()=>nextQ(),900); }
+
+  function endGame(){ clearInterval(state.timerId); updateSidebar(); renderReview(); // حفظ محلي وللـFirebase إذا متصل
+    alert('انتهت الجولة! نتيجتك: '+state.score);
+    // حفظ محلي
+    const lb = JSON.parse(localStorage.getItem('quiz_lb')||'[]'); const name = (state.user && state.user.displayName) ? state.user.displayName : localStorage.getItem('quiz_name') || 'Player'; lb.push({name,score:state.score,date:Date.now()}); lb.sort((a,b)=>b.score-a.score); localStorage.setItem('quiz_lb',JSON.stringify(lb)); renderLocalLeaderboard();
+    // حفظ إلى Firestore إن أمكن
+    if(state.db && state.user){ state.db.collection('leaderboard').add({name: state.user.displayName||state.user.email||'Player',score: state.score,uid: state.user.uid,ts: Date.now()}).then(()=>{ console.log('saved to firestore'); fetchRemoteLeaderboard(); }).catch(e=>console.warn('fb save failed',e)); }
+  }
+
+  // ====== تلميح و تخطي ======
+  document.getElementById('hintBtn').addEventListener('click', ()=>{ if(state.coins<1){ alert('لا تملك عملات كافية'); return;} const q=state.pool[state.current]; const wrongIdxs = q.choices.map((c,i)=>i).filter(i=>i!==q.answer); const toHide = wrongIdxs[Math.floor(Math.random()*wrongIdxs.length)]; const btn = answersWrap.children[toHide]; if(btn){ btn.style.opacity=.35; btn.onclick=null; state.coins--; updateSidebar(); } });
+  document.getElementById('skipBtn').addEventListener('click', ()=>{ if(state.coins<2){ alert('تحتاج 2 عملة'); return;} state.coins-=2; state.current++; updateSidebar(); nextQ(); });
+
+  // ====== مراجعة الأسئلة الخاطئة ======
+  reviewBtn.addEventListener('click', ()=>{ reviewArea.style.display = reviewArea.style.display==='none'?'block':'none'; });
+  function renderReview(){ reviewArea.innerHTML=''; if(state.wrongReview.length===0){ reviewArea.innerHTML='<div class="small">لا أخطاء للمراجعة</div>'; return; } state.wrongReview.forEach(q=>{ const d = document.createElement('div'); d.className='panel'; d.innerHTML = `<div><strong>${q.q_ar}</strong></div><div>الاجابة الصحيحة: ${q.choices[q.answer]}</div><div class="small">${q.explain||''}</div>`; reviewArea.appendChild(d); }); }
+
+  // ====== لوحات شرف ======
+  function renderLocalLeaderboard(){ const lb = JSON.parse(localStorage.getItem('quiz_lb')||'[]'); leaderboardEl.innerHTML=''; if(lb.length===0){ leaderboardEl.innerHTML='<div class="small">لا نتائج محلية</div>'; return;} lb.slice(0,8).forEach(it=>{ const el=document.createElement('div'); el.className='small'; el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px 0'; el.innerHTML=`<div>${escapeHtml(it.name)}</div><div style="font-weight:700">${it.score}</div>`; leaderboardEl.appendChild(el); }); }
+
+  async function fetchRemoteLeaderboard(){ if(!state.db) return; try{ const snap = await state.db.collection('leaderboard').orderBy('score','desc').limit(10).get(); leaderboardEl.innerHTML=''; snap.forEach(doc=>{ const d = doc.data(); const el = document.createElement('div'); el.className='small'; el.style.display='flex'; el.style.justifyContent='space-between'; el.style.padding='6px 0'; el.innerHTML = `<div>${escapeHtml(d.name)}</div><div style="font-weight:700">${d.score}</div>`; leaderboardEl.appendChild(el); }); }catch(e){ console.warn('fetch remote lb failed',e); } }
+
+  // ====== Firebase auth + init ======
+  signInBtn.addEventListener('click', async ()=>{
+    if(!state.fb){ alert('أدخل Firebase config ثم اضغط حفظ'); return; }
+    const provider = new firebase.auth.GoogleAuthProvider(); try{ const res = await firebase.auth().signInWithPopup(provider); state.user = res.user; onAuthChanged(state.user); }catch(e){ alert('فشل تسجيل الدخول: '+e.message); }
+  });
+  signOutBtn.addEventListener('click', ()=>{ firebase.auth().signOut(); state.user=null; onAuthChanged(null); });
+
+  saveFbBtn.addEventListener('click', ()=>{ const txt = firebaseConfigInput.value.trim(); if(!txt) return alert('أدخل JSON config'); try{ const cfg = JSON.parse(txt); if(window.firebase && window.firebase.apps && window.firebase.apps.length>0){ // re-init
+        firebase.app().delete().then(()=>{ initFirebase(cfg); });
+      } else initFirebase(cfg);
+    }catch(e){ alert('JSON غير صالح'); } });
+
+  function initFirebase(cfg){ try{ firebase.initializeApp(cfg); state.fb=true; state.db = firebase.firestore(); alert('Firebase مُهيّأ'); // مراقب حالة المصادقة
+      firebase.auth().onAuthStateChanged(u=>{ state.user = u; onAuthChanged(u); }); fetchRemoteLeaderboard(); }catch(e){ alert('تعذر تهيئة Firebase: '+e.message); } }
+
+  function onAuthChanged(user){ if(user){ userName.textContent = user.displayName || user.email; userPic.src = user.photoURL || ''; userPic.style.display = user.photoURL ? 'block' : 'none'; signInBtn.style.display='none'; signOutBtn.style.display='inline-block'; fetchRemoteLeaderboard(); } else { userName.textContent='زائر'; userPic.style.display='none'; signInBtn.style.display='inline-block'; signOutBtn.style.display='none'; renderLocalLeaderboard(); } }
+
+  // ====== أدوات مساعدة ======
+  function updateSidebar(){ scoreEl.textContent = state.score; coinsEl.textContent = state.coins; livesEl.textContent = state.lives; }
+  function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function beep(freq=440,dur=0.06){ try{ const o= new (window.AudioContext || window.webkitAudioContext)().createOscillator(); const g = new (window.AudioContext || window.webkitAudioContext)().createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=0.05; o.connect(g); g.connect((new (window.AudioContext || window.webkitAudioContext)()).destination); o.start(); setTimeout(()=>o.stop(),dur*1000); }catch(e){} }
+
+  // ====== تهيئة بسيطة عند اللود ======
+  (function init(){ renderLocalLeaderboard(); updateSidebar(); if(localStorage.getItem('firebase_cfg')){ firebaseConfigInput.value = localStorage.getItem('firebase_cfg'); try{ initFirebase(JSON.parse(localStorage.getItem('firebase_cfg'))); }catch(e){} } })();
+  
+  // حفظ config محلياً
+  saveFbBtn.addEventListener('click', ()=>{ try{ const cfg = JSON.parse(firebaseConfigInput.value); localStorage.setItem('firebase_cfg',JSON.stringify(cfg)); alert('تم الحفظ محليًا'); }catch(e){ } });
+
+  // تحميل أسئلة افتراضية لو لم يقم المستخدم بتحميل شيء
+  QUESTION_BANK = [
+    {id:1,category:'math',difficulty:'easy',q_ar:'ما هو 2+3؟',choices:['4','5','6','7'],answer:1,explain:'2+3=5'},
+    {id:2,category:'science',difficulty:'easy',q_ar:'رمز الأكسجين؟',choices:['O','Ox','Og','X'],answer:0,explain:'الرمز O'},
+    {id:3,category:'history',difficulty:'medium',q_ar:'من كان أول رئيس للولايات المتحدة؟',choices:['أبراهام','جورج واشنطن','لينكولن','روزبفلت'],answer:1,explain:'جورج واشنطن'},
+  ];
+
+  </script>
+</body>
+</html>
